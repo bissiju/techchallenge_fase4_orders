@@ -1,0 +1,62 @@
+version: '3.8'
+services:
+  orders-api:
+    container_name: orders-api
+    restart: always
+    build: .
+    depends_on:
+      mongodb-orders:
+        condition: service_healthy
+      rabbitmq-orders:
+        condition: service_healthy
+    environment:
+      - MONGO_URL=mongodb://mongodb-orders:27017/orders
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+    networks:
+      - app-network
+
+  rabbitmq-orders:
+    container_name: rabbitmq-orders
+    image: rabbitmq:management
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+    networks:
+      - app-network
+
+  mongodb-orders:
+    container_name: mongodb-orders
+    image: mvertes/alpine-mongo
+    ports:
+      - "27018:27017"
+    volumes:
+      - db:/var/lib/mongodb
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --eval 'db.runCommand({ ping: 1 })'"]
+      interval: 30s
+      timeout: 10s
+      retries: 50
+
+volumes:
+   db:
+
+networks:
+  app-network:
+    external: true
